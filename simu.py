@@ -7,7 +7,7 @@ def log_debug(message):
     """Prints a log to the terminal running Streamlit."""
     print(f"DEBUG: {message}", file=sys.stderr)
 
-log_debug("--- Starting Simulator Script v24 (UI & Scope Fix) ---")
+log_debug("--- Starting Simulator Script v25 (UI & Lifecycle Fix) ---")
 
 # --- 1. SIMULATION CONSTANTS (based on documents) ---
 MATERIAL_COST_PER_UNIT = 18.0
@@ -313,7 +313,7 @@ def run_one_year(year_label, year_index, prev_bs, prev_lines, prev_workers, deci
         log_debug(f"[{year_label}] {lines_scrapped} lines (4-yr-old) were scrapped at END of year.")
 
     # Data for this year's display
-    lines_flow_data['park_composition_start'] = prev_lines
+    lines_flow_data['park_composition_start'] = prev_lines # Show state at start of year
     lines_flow_data['opening_lines'] = total_existing_lines
     lines_flow_data['opening_capacity'] = existing_line_capacity
     lines_flow_data['purchased_this_year'] = new_lines_needed
@@ -625,10 +625,90 @@ def display_year_data(selected_year, cf_display, is_display, bs_data, lines_flow
         show_item("- Units Used", inv_display.get('mat_used'), is_unit=True, is_sub=True, is_negative=True, indent_level=1)
         show_item("Ending Stock", inv_display.get('mat_ending'), is_total=True, is_unit=True)
 
-# --- Initial Run Handling ---
-# This check handles the very first load, before any interaction
-# It's now redundant because the main display logic is inside the tab loops
-# We just need to ensure the tabs are created.
+# --- Tab for Year X6 (Static) ---
+with tabs[0]:
+    # (Code to build static X6 data)
+    # ... (Omitted for brevity, but it's the same as v24)
+    cf_display_X6 = {
+        'Opening Balance (net)': None, 'Operating Cash Flow (CFO)': None,
+        '... Cash In (Y-1)': None, '... Cash In (Y)': None, 
+        '... Cash Out (Operating)': None, 
+        'Cash Out - Personnel': None, 'Cash Out - External & Mktg': None,
+        'Cash Out - Interest': None, 'Cash Out - Taxes (from Y-1)': None,
+        'Cash Out - Purchases (Current 90%)': None, 'Cash Out - Payables (from Y-1)': None,
+        'Investing Cash Flow (CFI)': None, 'Financing Cash Flow (CFF)': None,
+        'Net Change in Cash': None,
+        'Ending Balance (net)': INITIAL_BALANCE_SHEET['cash'] - INITIAL_BALANCE_SHEET['bank_overdraft']
+    }
+    is_display_X6 = {
+        'Revenue - Sales': None, 'Revenue - Inventory Change (E-B)': None,
+        'Operating Revenue': None,
+        'Expenses - Material Expense': None,
+        'Expenses - External (Rent, Tax...)': None, 'Expenses - Marketing': None, 
+        'Expenses - Personnel': None, 'Expenses - Depreciation': None,
+        'Operating Expense': None, 'EBIT': None,
+        'Expenses - Financial Charges': None, 'Earnings Before Tax (EBT)': None,
+        'Taxes': None, 'Net Income': INITIAL_BALANCE_SHEET['net_income_previous_year']
+    }
+    bs_data_X6 = {
+        'Fixed Assets - Equipment (Net)': INITIAL_BALANCE_SHEET['gross_fixed_assets'] - INITIAL_BALANCE_SHEET['accumulated_depreciation'],
+        'Current Assets - Material Inv.': INITIAL_BALANCE_SHEET['inventory_materials_value'],
+        'Current Assets - Finished Inv.': INITIAL_BALANCE_SHEET['inventory_finished_value'],
+        'Current Assets - Receivables (AR)': INITIAL_BALANCE_SHEET['accounts_receivable'],
+        'Current Assets - Cash': INITIAL_BALANCE_SHEET['cash'],
+        'Equity - Capital Stock': INITIAL_BALANCE_SHEET['capital_stock'],
+        'Equity - Retained Earnings': INITIAL_BALANCE_SHEET['retained_earnings'],
+        'Equity - Net Income (Y)': INITIAL_BALANCE_SHEET['net_income_previous_year'],
+        'Liabilities - Long-Term Debt': INITIAL_BALANCE_SHEET['long_term_debt'],
+        'Liabilities - Bank Overdraft (ST)': INITIAL_BALANCE_SHEET['bank_overdraft'],
+        'Liabilities - Payables (AP)': INITIAL_BALANCE_SHEET['accounts_payable'],
+        'Liabilities - Taxes Payable': INITIAL_BALANCE_SHEET['income_tax_payable'],
+    }
+    current_assets = bs_data_X6['Current Assets - Material Inv.'] + bs_data_X6['Current Assets - Finished Inv.'] + bs_data_X6['Current Assets - Receivables (AR)'] + bs_data_X6['Current Assets - Cash']
+    bs_data_X6['TOTAL ASSETS'] = bs_data_X6['Fixed Assets - Equipment (Net)'] + current_assets
+    bs_data_X6['Total Equity'] = bs_data_X6['Equity - Capital Stock'] + bs_data_X6['Equity - Retained Earnings'] + bs_data_X6['Equity - Net Income (Y)']
+    current_liabilities = bs_data_X6['Liabilities - Bank Overdraft (ST)'] + bs_data_X6['Liabilities - Payables (AP)'] + bs_data_X6['Liabilities - Taxes Payable']
+    bs_data_X6['Total Liabilities'] = bs_data_X6['Liabilities - Long-Term Debt'] + current_liabilities
+    bs_data_X6['TOTAL LIABILITIES + EQUITY'] = bs_data_X6['Total Equity'] + bs_data_X6['Total Liabilities']
+    bs_data_X6['METRIC_ROE'] = 0
+    bs_data_X6['METRIC_Current_Ratio'] = current_assets / current_liabilities if current_liabilities > 0 else 0
+    
+    lines_display_X6_actual = {
+        'age_0': 0, 'age_1': INITIAL_LINE_AGES['age_1'], 'age_2': INITIAL_LINE_AGES['age_2'], 
+        'age_3': INITIAL_LINE_AGES['age_3'], 'age_4': INITIAL_LINE_AGES['age_4']
+    }
+    lines_flow_data_X6 = {
+        'park_composition_start': lines_display_X6_actual,
+        'opening_capacity': sum(INITIAL_LINE_AGES.values()) * UNITS_PER_LINE,
+        'capacity_purchased': 0,
+        'capacity_during_year': sum(INITIAL_LINE_AGES.values()) * UNITS_PER_LINE,
+        'scrapped_this_year': 0, # Nothing is scrapped in X6
+        'capacity_scrapped': 0,
+        'capacity_next_year': sum(INITIAL_LINE_AGES.values()) * UNITS_PER_LINE, # This will be updated by X7's scrap
+    }
+    lines_flow_data_X6['capacity_next_year'] = (sum(INITIAL_LINE_AGES.values()) - INITIAL_LINE_AGES['age_4']) * UNITS_PER_LINE
+
+    inv_display_X6 = {
+        'fg_opening': None, 'fg_produced': None, 'fg_sold': None,
+        'fg_ending': INITIAL_BALANCE_SHEET['inventory_finished_units'],
+        'mat_opening': None, 'mat_purchased': None, 'mat_used': None,
+        'mat_ending': INITIAL_BALANCE_SHEET['inventory_materials_units']
+    }
+    
+    display_year_data('X6', cf_display_X6, is_display_X6, bs_data_X6, lines_flow_data_X6, inv_display_X6, is_static=True)
+
+# --- Loop for Dynamic Tabs (X7-X11) ---
+for i, year_label in enumerate(tab_names[1:]): # Start from X7
+    with tabs[i+1]:
+        display_year_data(
+            year_label,
+            results_cf[year_label],
+            results_is[year_label],
+            results_bs[year_label],
+            results_lines[year_label],
+            results_inventory[year_label],
+            is_static=False
+        )
 
 st.sidebar.info("App created by Gemini (v24 - UI & Scope Fix).")
 
