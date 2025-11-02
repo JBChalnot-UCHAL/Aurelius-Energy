@@ -359,7 +359,7 @@ prior_ni = INITIAL_BALANCE_SHEET['net_income_previous_year'] # Start with 90k
 with st.sidebar.expander("Year X7 (Mandatory)", expanded=True):
     dec_X7 = {}
     dec_X7['price'] = st.number_input("1.1 Unit Selling Price (CU)", 
-        min_value=30.0, max_value=100.0, value=50.0, step=0.5, key='price_X7')
+        min_value=30.0, max_value=100.0, value=42.0, step=0.5, key='price_X7')
     dec_X7['prod_volume'] = st.select_slider("1.2 Target Production Volume (units)",
         options=prod_volume_options, value=100000, key='prod_X7',
         help="The simulator will automatically buy/hire to meet this target.")
@@ -368,10 +368,10 @@ with st.sidebar.expander("Year X7 (Mandatory)", expanded=True):
         help="Simulates demand. 100% = you sell all available stock (opening + produced).")
     dec_X7['percent_sold'] = dec_X7['percent_sold_display'] / 100.0
     dec_X7['marketing_pct'] = st.slider("4.1 Marketing Budget (% of Total Costs)",
-        min_value=1.0, max_value=15.0, value=6.0, step=0.1, key='mktg_X7',
+        min_value=1.0, max_value=15.0, value=10.0, step=0.1, key='mktg_X7',
         help="Calculated as % of Total Costs (Material Exp + Personnel + External + Depr).") / 100.0
     dec_X7['dividends_amount'] = st.number_input("5.1 Dividends Paid (Year X7 only)",
-        min_value=0.0, max_value=90000.0, value=0.0, step=1000.0, key='div_X7',
+        min_value=0.0, max_value=90000.0, value=12500.0, step=1000.0, key='div_X7',
         help="Paid from the 90k CU profit from Y6. Capped at 90,000.")
     all_decisions['X7'] = dec_X7
 
