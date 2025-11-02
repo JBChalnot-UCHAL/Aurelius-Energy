@@ -7,7 +7,7 @@ def log_debug(message):
     """Prints a log to the terminal running Streamlit."""
     print(f"DEBUG: {message}", file=sys.stderr)
 
-log_debug("--- Starting Simulator Script v21 (Dynamic & New UI) ---")
+log_debug("--- Starting Simulator Script v22 (Lifecycle UI) ---")
 
 # --- 1. SIMULATION CONSTANTS (based on documents) ---
 MATERIAL_COST_PER_UNIT = 18.0
@@ -22,7 +22,7 @@ DEPRECIATION_PER_LINE = 10000.0
 BASE_ADMIN_SALARIES = 300000.0
 RENT_FACTORY = 300000.0
 PROPERTY_TAX = 40000.0
-AUDITING_FEES = 10000.0 # Assumption from template
+AUDITING_FEES = 10000.0 # Assumption
 EXISTING_DEBT = 200000.0
 INTEREST_RATE_DEBT = 0.08
 INTEREST_RATE_OVERDRAFT = 0.10
@@ -37,9 +37,9 @@ INITIAL_BALANCE_SHEET = {
     'cash': 70000.0,
     'accounts_receivable': 350000.0,
     'inventory_finished_units': 5000.0,
-    'inventory_finished_value': 135000.0, # Valued at 27 CU
+    'inventory_finished_value': 135000.0,
     'inventory_materials_units': 10000.0,
-    'inventory_materials_value': 180000.0, # Valued at 18 CU
+    'inventory_materials_value': 180000.0,
     'gross_fixed_assets': 450000.0,
     'accumulated_depreciation': 240000.0,
     'accounts_payable': 235000.0,
@@ -65,11 +65,10 @@ INITIAL_WORKERS = 50
 def run_one_year(year_label, year_index, prev_bs, prev_lines, prev_workers, decisions):
     """
     Simulates a single year and returns all calculated data and the new "previous state".
-    (v19 - Implements Auditor Recommendations E1, E2, E3, E4, E6)
     """
     log_debug(f"--- Calculating Year {year_label} (Index {year_index}) ---")
     
-    cf_data, is_data, bs_data, bs_internal, inventory_flow_data = {}, {}, {}, {}, {}
+    cf_data, is_data, bs_data, bs_internal, inventory_flow_data, lines_flow_data = {}, {}, {}, {}, {}, {}
     
     # --- A. STRATEGIC DECISIONS ---
     target_production_volume = decisions['prod_volume']
@@ -147,7 +146,6 @@ def run_one_year(year_label, year_index, prev_bs, prev_lines, prev_workers, deci
     ebit = operating_revenue - operating_expense
     
     # C8. Financial Charges (AUDIT FIX E2)
-    # Start with fixed debt interest ONLY. Overdraft interest is calculated iteratively.
     interest_fixed_debt = prev_bs['long_term_debt'] * INTEREST_RATE_DEBT
     interest_overdraft = 0.0
     
@@ -173,8 +171,7 @@ def run_one_year(year_label, year_index, prev_bs, prev_lines, prev_workers, deci
     
     cfi = -investment_cash_out
     
-    # D2. Dividends (AUDIT FIX E6 + v21 FIX)
-    # Pay dividends based on user input, capped by prior year's NI
+    # D2. Dividends
     dividends_paid = min(decisions['dividends_amount'], prev_bs['net_income_previous_year'])
     
     debt_repayment = 0
@@ -190,9 +187,7 @@ def run_one_year(year_label, year_index, prev_bs, prev_lines, prev_workers, deci
     tentative_ending_net_cash = opening_net_cash + tentative_cash_flow
     
     if tentative_ending_net_cash < 0:
-        # Calculate the interest payable immediately on the *tentative* overdraft
         tentative_overdraft = -tentative_ending_net_cash
-        # Formula: interest = (Tentative_OD * Rate) / (1 - Rate)
         interest_overdraft = (tentative_overdraft * INTEREST_RATE_OVERDRAFT) / (1.0 - INTEREST_RATE_OVERDRAFT)
         log_debug(f"[{year_label}] Overdraft interest loop: {interest_overdraft}")
     
@@ -317,14 +312,19 @@ def run_one_year(year_label, year_index, prev_bs, prev_lines, prev_workers, deci
     if lines_scrapped > 0:
         log_debug(f"[{year_label}] {lines_scrapped} lines (4-yr-old) were scrapped at END of year.")
 
-    lines_data = {
-        'age_0': new_lines_needed,
-        'age_1': prev_lines['age_0'],
-        'age_2': prev_lines['age_1'],
-        'age_3': prev_lines['age_2'],
-        'age_4': prev_lines['age_3'] # Note: lines_data shows state *during* the year
-    }
+    # *** NEW: Lines Flow Data (v22) ***
+    lines_flow_data['opening_lines'] = total_existing_lines
+    lines_flow_data['opening_capacity'] = existing_line_capacity
+    lines_flow_data['purchased_this_year'] = new_lines_needed
+    lines_flow_data['capacity_purchased'] = new_lines_needed * UNITS_PER_LINE
+    lines_flow_data['capacity_during_year'] = total_line_capacity
+    lines_flow_data['scrapped_this_year'] = lines_scrapped
+    lines_flow_data['capacity_scrapped'] = lines_scrapped * UNITS_PER_LINE
+    lines_flow_data['ending_lines'] = total_existing_lines + new_lines_needed - lines_scrapped
+    lines_flow_data['capacity_next_year'] = lines_flow_data['ending_lines'] * UNITS_PER_LINE
+    lines_flow_data['park_composition_end'] = next_lines # This is the state for START of next year
     
+    # Inventory Flow Data
     inventory_flow_data['fg_opening'] = opening_inv_units
     inventory_flow_data['fg_produced'] = production_volume
     inventory_flow_data['fg_sold'] = actual_sales_volume
@@ -338,13 +338,13 @@ def run_one_year(year_label, year_index, prev_bs, prev_lines, prev_workers, deci
     
     log_debug(f"[{year_label}] END Year Loop.")
     
-    return cf_data, is_data, bs_data, bs_internal, lines_data, inventory_flow_data, next_lines, next_workers
+    return cf_data, is_data, bs_data, bs_internal, lines_flow_data, inventory_flow_data, next_lines, next_workers
 
 
 # --- 4. USER INTERFACE (Streamlit) ---
 
 st.set_page_config(layout="wide")
-st.title("Financial Simulator (Excel Layout) - v21 (Dynamic)")
+st.title("Financial Simulator (Excel Layout) - v22 (Lifecycle UI)")
 st.write("Model based on the ACC (EMBA) case. This version incorporates fixes from the auditor's report.")
 
 # --- Sidebar for Inputs ---
@@ -353,6 +353,7 @@ st.sidebar.markdown("Use the expanders to set decisions year by year. The simula
 
 prod_volume_options = list(range(100000, 200001, 10000))
 all_decisions = {}
+prior_ni = INITIAL_BALANCE_SHEET['net_income_previous_year'] # Start with 90k
 
 with st.sidebar.expander("Year X7 (Mandatory)", expanded=True):
     dec_X7 = {}
@@ -368,7 +369,6 @@ with st.sidebar.expander("Year X7 (Mandatory)", expanded=True):
     dec_X7['marketing_pct'] = st.slider("4.1 Marketing Budget (% of Total Costs)",
         min_value=1.0, max_value=15.0, value=6.0, step=0.1, key='mktg_X7',
         help="Calculated as % of Total Costs (Material Exp + Personnel + External + Depr).") / 100.0
-    # Dividend input for X7 (based on X6 profit)
     dec_X7['dividends_amount'] = st.number_input("5.1 Dividends Paid (Year X7 only)",
         min_value=0.0, max_value=90000.0, value=0.0, step=1000.0, key='div_X7',
         help="Paid from the 90k CU profit from Y6. Capped at 90,000.")
@@ -388,7 +388,6 @@ def create_year_sidebar(year_label, prev_year_label, default_decisions):
         dec['marketing_pct'] = st.slider("4.1 Marketing Budget (% of Total Costs)",
             min_value=1.0, max_value=15.0, value=default_decisions['marketing_pct']*100.0, step=0.1, key=f'mktg_{year_label}',
             help="Calculated as % of Total Costs (Material Exp + Personnel + External + Depr).") / 100.0
-        # Dividend policy input for X8+
         dec['dividends_amount'] = st.number_input(f"Dividends Paid (Year {year_label})",
             min_value=0.0, value=0.0, step=1000.0, key=f'div_amt_{year_label}',
             help="Amount to pay from *prior year's* Net Income. Will be automatically capped at the available amount.")
@@ -400,7 +399,7 @@ all_decisions['X10'] = create_year_sidebar('X10', 'X9', all_decisions['X9'])
 all_decisions['X11'] = create_year_sidebar('X11', 'X10', all_decisions['X10'])
 
 st.sidebar.divider()
-st.sidebar.info("App created by Gemini (v21 - Dynamic). The simulation runs automatically when you change a parameter.")
+st.sidebar.info("App created by Gemini (v22 - Lifecycle UI). The simulation runs automatically when you change a parameter.")
 
 # --- Main Display ---
 # App is now DYNAMIC. No button, just run the simulation every time.
@@ -427,6 +426,16 @@ for year_index in range(1, 6):
     results_lines[year_label] = lines_data
     results_inventory[year_label] = inv_data
     
+    # Update prior year NI for next dividend cap
+    if year_label == 'X7':
+        all_decisions['X8']['dividends_cap'] = is_data['Net Income']
+    elif year_label == 'X8':
+        all_decisions['X9']['dividends_cap'] = is_data['Net Income']
+    elif year_label == 'X9':
+        all_decisions['X10']['dividends_cap'] = is_data['Net Income']
+    elif year_label == 'X10':
+        all_decisions['X11']['dividends_cap'] = is_data['Net Income']
+
     prev_bs = bs_internal.copy()
     prev_lines = next_lines.copy()
     prev_workers = next_workers
@@ -515,7 +524,19 @@ with tabs[0]:
     bs_data_X6['METRIC_Current_Ratio'] = current_assets / current_liabilities if current_liabilities > 0 else 0
     bs_data = bs_data_X6 # Use this for display
     
-    lines_display = INITIAL_LINE_AGES.copy()
+    # Static Line & Inv data for X6
+    lines_display_X6_actual = {
+        'age_0': 0, 'age_1': INITIAL_LINE_AGES['age_1'], 'age_2': INITIAL_LINE_AGES['age_2'], 
+        'age_3': INITIAL_LINE_AGES['age_3'], 'age_4': INITIAL_LINE_AGES['age_4']
+    }
+    lines_flow_data = {
+        'opening_capacity': sum(INITIAL_LINE_AGES.values()) * UNITS_PER_LINE,
+        'capacity_purchased': 0,
+        'capacity_during_year': sum(INITIAL_LINE_AGES.values()) * UNITS_PER_LINE,
+        'capacity_scrapped': 0, # Scrapping happens *at end* of X7
+        'capacity_next_year': (sum(INITIAL_LINE_AGES.values()) - INITIAL_LINE_AGES['age_4']) * UNITS_PER_LINE,
+        'park_composition_end': lines_display_X6_actual
+    }
     
     inv_display = {
         'fg_opening': None, 'fg_produced': None, 'fg_sold': None,
@@ -527,6 +548,7 @@ with tabs[0]:
     # --- Display for X6 ---
     st.divider()
     m_col1, m_col2, m_col3, m_col4 = st.columns(4)
+    # (Metrics)
     with m_col1:
         st.metric(label="Net Income (kCU)", value=f"{is_display['Net Income']/1000:,.1f}" if is_display['Net Income'] is not None else "n/a")
     with m_col2:
@@ -544,45 +566,53 @@ with tabs[0]:
         show_item("Opening Balance (net)", cf_display['Opening Balance (net)'])
         show_item("Operating Cash Flow (CFO)", cf_display['Operating Cash Flow (CFO)'], is_total=True)
         show_item("... Cash In (Y-1)", cf_display['... Cash In (Y-1)'], is_sub=True, indent_level=1)
-        show_item("... Cash In (Y)", cf_display['... Cash In (Y)'], is_sub=True, indent_level=1)
-        
-        show_item("... Cash Out (Operating)", cf_display['... Cash Out (Operating)'], is_sub=True, is_negative=True, indent_level=1)
-        show_item("... ... Personnel", cf_display['Cash Out - Personnel'], is_sub=True, is_negative=True, indent_level=2)
-        # ... (rest of CF items)
-        show_item("Investing Cash Flow (CFI)", cf_display['Investing Cash Flow (CFI)'], is_total=True)
-        show_item("Financing Cash Flow (CFF)", cf_display['Financing Cash Flow (CFF)'], is_total=True)
-        st.divider()
-        show_item("Net Change in Cash", cf_display['Net Change in Cash'])
+        # ... (rest of CF)
         show_item("Ending Balance (net)", cf_display['Ending Balance (net)'], is_total=True)
     with col2:
         st.subheader("Income Statement (kCU)")
         st.markdown("**Revenue**")
         show_item("Sales", is_display['Revenue - Sales'])
-        # ... (rest of IS items)
+        # ... (rest of IS)
         st.divider()
         show_item("Net Income", is_display['Net Income'], is_total=True)
     with col3:
         st.subheader("Balance Sheet (kCU)")
         st.markdown("**Assets**")
         show_item("Equipment (Net)", bs_data['Fixed Assets - Equipment (Net)'])
-        # ... (rest of BS items)
+        # ... (rest of BS)
         st.divider()
         show_item("TOTAL ASSETS", bs_data['TOTAL ASSETS'], is_total=True)
         st.markdown("**Liabilities & Equity**")
         show_item("Capital Stock", bs_data['Equity - Capital Stock'])
-        # ... (rest of L&E items)
+        # ... (rest of L&E)
         st.divider()
         show_item("TOTAL LIABILITIES + EQUITY", bs_data['TOTAL LIABILITIES + EQUITY'], is_total=True)
 
-    # --- Machine Tracking Section ---
+    # --- Machine Tracking Section (v22) ---
     st.divider()
-    st.subheader(f"Assembly Line Status (End of Year {selected_year})")
-    # ... (Machine status display)
+    st.subheader(f"Capacity & Asset Lifecycle (Lines)")
+    st.metric(label=f"Opening Capacity (Start of {selected_year})", value=f"{lines_flow_data['opening_capacity']:,.0f} units")
+    st.metric(label=f"Ending Capacity (Start of X7)", value=f"{lines_flow_data['capacity_next_year']:,.0f} units",
+              delta=f"{-lines_flow_data['opening_capacity'] + lines_flow_data['capacity_next_year']:,.0f} units (Scrapping {INITIAL_LINE_AGES['age_4']} lines)", delta_color="inverse")
+    
+    with st.expander("View Detailed Machine Park (End of X6)"):
+        park = lines_flow_data['park_composition_end']
+        st.write(f"**Lines at 1 Year Old:** `{park.get('age_1', 0)}`")
+        st.write(f"**Lines at 2 Years Old:** `{park.get('age_2', 0)}`")
+        st.write(f"**Lines at 3 Years Old:** `{park.get('age_3', 0)}`")
+        st.write(f"**Lines at 4 Years Old (To be scrapped in X7):** `{park.get('age_4', 0)}`")
     
     # --- Inventory Tracking Section ---
     st.divider()
     st.subheader(f"Inventory Flow (Units) - Year {selected_year}")
     # ... (Inventory flow display)
+    inv_col1, inv_col2 = st.columns(2)
+    with inv_col1:
+        st.markdown("##### Finished Goods (Units)")
+        show_item("Ending Stock", inv_display.get('fg_ending'), is_total=True, is_unit=True)
+    with inv_col2:
+        st.markdown("##### Raw Materials (Units)")
+        show_item("Ending Stock", inv_display.get('mat_ending'), is_total=True, is_unit=True)
 
 
 # --- Loop for Dynamic Tabs (X7-X11) ---
@@ -595,7 +625,7 @@ for i, year_label in enumerate(tab_names[1:]): # Start from X7
         cf_display = results_cf[year_label]
         is_display = results_is[year_label]
         bs_data = results_bs[year_label]
-        lines_display = results_lines[year_label]
+        lines_flow_data = results_lines[year_label]
         inv_display = results_inventory[year_label]
 
         # --- Key Metrics Dashboard ---
@@ -689,32 +719,28 @@ for i, year_label in enumerate(tab_names[1:]): # Start from X7
             if bs_data['TOTAL ASSETS'] is not None and not math.isclose(bs_data['TOTAL ASSETS'], bs_data['TOTAL LIABILITIES + EQUITY'], rel_tol=1e-3):
                 st.error(f"Balance Sheet Unbalanced! A={bs_data['TOTAL ASSETS']/1000:,.1f}k, L+E={bs_data['TOTAL LIABILITIES + EQUITY']/1000:,.1f}k")
 
-        # --- Machine Tracking Section ---
+        # --- Machine Tracking Section (v22) ---
         st.divider()
-        st.subheader(f"Assembly Line Status (End of Year {selected_year})")
+        st.subheader(f"Capacity & Asset Lifecycle (Lines)")
         
-        lines_col1, lines_col2 = st.columns(2)
-        with lines_col1:
-            st.markdown("##### Machine Park Composition")
-            st.write(f"**Purchased in {year_label} (Y)** : `{lines_display.get('age_0', 0)}` lines")
-            st.write(f"**Purchased in Y-1** : `{lines_display.get('age_1', 0)}` lines")
-            st.write(f"**Purchased in Y-2** : `{lines_display.get('age_2', 0)}` lines")
-            st.write(f"**Purchased in Y-3** : `{lines_display.get('age_3', 0)}` lines")
-            st.write(f"**Purchased in Y-4** : `{lines_display.get('age_4', 0)}` lines")
-            
-        with lines_col2:
-            total_lines = sum(lines_display.values())
-            total_capacity = total_lines * UNITS_PER_LINE
-            lines_to_be_scrapped_next_year = lines_display.get('age_4', 0)
-            
-            st.metric(label="Total Number of Lines", value=f"{total_lines} lines")
-            st.metric(label="Total Production Capacity", value=f"{total_capacity:,.0f} units/year")
-            
-            next_year_str = f"in X{int(year_label.replace('X',''))+1}"
-            if lines_to_be_scrapped_next_year > 0:
-                st.warning(f"**{lines_to_be_scrapped_next_year}** lines will be scrapped next year ({next_year_str})")
-            else:
-                st.success(f"No lines are scheduled for scrapping next year ({next_year_str}).")
+        metric_col1, metric_col2, metric_col3 = st.columns(3)
+        with metric_col1:
+            st.metric(label=f"Opening Capacity (Start of {year_label})", value=f"{lines_flow_data['opening_capacity']:,.0f} units")
+        with metric_col2:
+            st.metric(label=f"Total Capacity (During {year_label})", value=f"{lines_flow_data['capacity_during_year']:,.0f} units",
+                      delta=f"{lines_flow_data['capacity_purchased']:,.0f} (Purchased)")
+        with metric_col3:
+            next_year_label = f"X{int(year_label.replace('X',''))+1}"
+            st.metric(label=f"Opening Capacity (Start of {next_year_label})", value=f"{lines_flow_data['capacity_next_year']:,.0f} units",
+                      delta=f"{-lines_flow_data['capacity_scrapped']:,.0f} (Scrapped)", delta_color="inverse")
+
+        with st.expander(f"View Detailed Machine Park (End of {year_label})"):
+            park = lines_flow_data['park_composition_end']
+            st.write(f"**New Lines (0 yrs old):** `{park.get('age_0', 0)}` (Purchased in {year_label})")
+            st.write(f"**Lines at 1 Year Old:** `{park.get('age_1', 0)}`")
+            st.write(f"**Lines at 2 Years Old:** `{park.get('age_2', 0)}`")
+            st.write(f"**Lines at 3 Years Old:** `{park.get('age_3', 0)}`")
+            st.write(f"**Lines at 4 Years Old (To be scrapped next year):** `{park.get('age_4', 0)}`")
 
         # --- Inventory Tracking Section ---
         st.divider()
@@ -736,4 +762,5 @@ for i, year_label in enumerate(tab_names[1:]): # Start from X7
             show_item("- Units Used", inv_display.get('mat_used'), is_unit=True, is_sub=True, is_negative=True, indent_level=1)
             show_item("Ending Stock", inv_display.get('mat_ending'), is_total=True, is_unit=True)
 
-st.sidebar.info("App created by Gemini (v21 - Dynamic & UI Fixes).")
+st.sidebar.info("App created by Gemini (v22 - Lifecycle UI).")
+
