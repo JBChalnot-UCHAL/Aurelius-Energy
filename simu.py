@@ -323,6 +323,7 @@ def run_one_year(year_label, year_index, prev_bs, prev_lines, prev_workers, deci
     lines_flow_data['capacity_scrapped'] = lines_scrapped * UNITS_PER_LINE
     lines_flow_data['ending_lines'] = total_existing_lines + new_lines_needed - lines_scrapped
     lines_flow_data['capacity_next_year'] = lines_flow_data['ending_lines'] * UNITS_PER_LINE
+    lines_flow_data['park_composition_end'] = next_lines # EOY state for expander
     
     # Inventory Flow Data
     inventory_flow_data['fg_opening'] = opening_inv_units
@@ -344,7 +345,7 @@ def run_one_year(year_label, year_index, prev_bs, prev_lines, prev_workers, deci
 # --- 4. USER INTERFACE (Streamlit) ---
 
 st.set_page_config(layout="wide")
-st.title("Financial Simulator (Excel Layout) - v24 (UI & Scope Fix)")
+st.title("Financial Simulator (Excel Layout) - v25 (UI Fix)")
 st.write("Model based on the ACC (EMBA) case. This version incorporates fixes from the auditor's report.")
 
 # --- Sidebar for Inputs ---
@@ -399,7 +400,7 @@ all_decisions['X10'] = create_year_sidebar('X10', 'X9', all_decisions['X9'])
 all_decisions['X11'] = create_year_sidebar('X11', 'X10', all_decisions['X10'])
 
 st.sidebar.divider()
-st.sidebar.info("App created by Gemini (v24 - UI & Scope Fix). The simulation runs automatically.")
+st.sidebar.info("App created by Gemini (v25 - UI & Lifecycle Fix). The simulation runs automatically.")
 
 # --- Main Display ---
 # App is now DYNAMIC. No button, just run the simulation every time.
@@ -596,13 +597,13 @@ def display_year_data(selected_year, cf_display, is_display, bs_data, lines_flow
                       delta=f"{-lines_flow_data['capacity_scrapped']:,.0f} (Scrapped EOY)", 
                       delta_color="inverse")
 
-        with st.expander(f"View Detailed Machine Park (Start of {selected_year})"):
-            park = lines_flow_data['park_composition_start']
-            st.write(f"**New Lines (0 yrs old, purchased this year):** `{park.get('age_0', 0)}`")
+        with st.expander(f"View Detailed Machine Park (End of {selected_year})"):
+            park = lines_flow_data['park_composition_end'] # *** FIX: Show EOY state ***
+            st.write(f"**Lines at 0 Years Old (New):** `{park.get('age_0', 0)}`")
             st.write(f"**Lines at 1 Year Old:** `{park.get('age_1', 0)}`")
             st.write(f"**Lines at 2 Years Old:** `{park.get('age_2', 0)}`")
             st.write(f"**Lines at 3 Years Old:** `{park.get('age_3', 0)}`")
-            st.write(f"**Lines at 4 Years Old (Scrapped EOY {selected_year}):** `{park.get('age_4', 0)}`")
+            st.write(f"**Lines at 4 Years Old (To be scrapped next year):** `{park.get('age_4', 0)}`")
 
 
     # --- Inventory Tracking Section ---
@@ -628,7 +629,6 @@ def display_year_data(selected_year, cf_display, is_display, bs_data, lines_flow
 # --- Tab for Year X6 (Static) ---
 with tabs[0]:
     # (Code to build static X6 data)
-    # ... (Omitted for brevity, but it's the same as v24)
     cf_display_X6 = {
         'Opening Balance (net)': None, 'Operating Cash Flow (CFO)': None,
         '... Cash In (Y-1)': None, '... Cash In (Y)': None, 
@@ -684,9 +684,8 @@ with tabs[0]:
         'capacity_during_year': sum(INITIAL_LINE_AGES.values()) * UNITS_PER_LINE,
         'scrapped_this_year': 0, # Nothing is scrapped in X6
         'capacity_scrapped': 0,
-        'capacity_next_year': sum(INITIAL_LINE_AGES.values()) * UNITS_PER_LINE, # This will be updated by X7's scrap
+        'capacity_next_year': (sum(INITIAL_LINE_AGES.values()) - INITIAL_LINE_AGES['age_4']) * UNITS_PER_LINE,
     }
-    lines_flow_data_X6['capacity_next_year'] = (sum(INITIAL_LINE_AGES.values()) - INITIAL_LINE_AGES['age_4']) * UNITS_PER_LINE
 
     inv_display_X6 = {
         'fg_opening': None, 'fg_produced': None, 'fg_sold': None,
@@ -710,5 +709,5 @@ for i, year_label in enumerate(tab_names[1:]): # Start from X7
             is_static=False
         )
 
-st.sidebar.info("App created by Gemini (v24 - UI & Scope Fix).")
+st.sidebar.info("App created by Gemini (v25 - UI & Lifecycle Fix).")
 
