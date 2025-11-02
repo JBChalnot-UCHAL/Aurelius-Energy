@@ -7,7 +7,7 @@ def log_debug(message):
     """Prints a log to the terminal running Streamlit."""
     print(f"DEBUG: {message}", file=sys.stderr)
 
-log_debug("--- Starting Simulator Script v23 (Lifecycle Fix) ---")
+log_debug("--- Starting Simulator Script v24 (UI & Scope Fix) ---")
 
 # --- 1. SIMULATION CONSTANTS (based on documents) ---
 MATERIAL_COST_PER_UNIT = 18.0
@@ -344,7 +344,7 @@ def run_one_year(year_label, year_index, prev_bs, prev_lines, prev_workers, deci
 # --- 4. USER INTERFACE (Streamlit) ---
 
 st.set_page_config(layout="wide")
-st.title("Financial Simulator (Excel Layout) - v23 (Lifecycle Fix)")
+st.title("Financial Simulator (Excel Layout) - v24 (UI & Scope Fix)")
 st.write("Model based on the ACC (EMBA) case. This version incorporates fixes from the auditor's report.")
 
 # --- Sidebar for Inputs ---
@@ -399,7 +399,7 @@ all_decisions['X10'] = create_year_sidebar('X10', 'X9', all_decisions['X9'])
 all_decisions['X11'] = create_year_sidebar('X11', 'X10', all_decisions['X10'])
 
 st.sidebar.divider()
-st.sidebar.info("App created by Gemini (v23 - Lifecycle Fix). The simulation runs automatically.")
+st.sidebar.info("App created by Gemini (v24 - UI & Scope Fix). The simulation runs automatically.")
 
 # --- Main Display ---
 # App is now DYNAMIC. No button, just run the simulation every time.
@@ -460,85 +460,19 @@ def show_item(label, value, is_total=False, is_sub=False, is_unit=False, is_nega
     </div>
     """, unsafe_allow_html=True)
 
-# --- Tab for Year X6 (Static) ---
-with tabs[0]:
-    selected_year = 'X6'
+# Function to display the data for a given year
+def display_year_data(selected_year, cf_display, is_display, bs_data, lines_flow_data, inv_display, is_static=False):
+    """Renders all the data for a specific year tab."""
+    
     st.header(f"Financial Statement Projection - Year {selected_year}")
-    st.info("Displaying Initial State at the end of Year X6 (Start of Simulation).")
-    
-    # Manually populate display dictionaries from constants
-    cf_display = {
-        'Opening Balance (net)': None, 'Operating Cash Flow (CFO)': None,
-        '... Cash In (Y-1)': None, '... Cash In (Y)': None, 
-        '... Cash Out (Operating)': None, 
-        'Cash Out - Personnel': None, 'Cash Out - External & Mktg': None,
-        'Cash Out - Interest': None, 'Cash Out - Taxes (from Y-1)': None,
-        'Cash Out - Purchases (Current 90%)': None, 'Cash Out - Payables (from Y-1)': None,
-        'Investing Cash Flow (CFI)': None, 'Financing Cash Flow (CFF)': None,
-        'Net Change in Cash': None,
-        'Ending Balance (net)': INITIAL_BALANCE_SHEET['cash'] - INITIAL_BALANCE_SHEET['bank_overdraft']
-    }
-    
-    is_display = {
-        'Revenue - Sales': None, 'Revenue - Inventory Change (E-B)': None,
-        'Operating Revenue': None,
-        'Expenses - Material Expense': None,
-        'Expenses - External (Rent, Tax...)': None, 'Expenses - Marketing': None, 
-        'Expenses - Personnel': None, 'Expenses - Depreciation': None,
-        'Operating Expense': None, 'EBIT': None,
-        'Expenses - Financial Charges': None, 'Earnings Before Tax (EBT)': None,
-        'Taxes': None, 'Net Income': INITIAL_BALANCE_SHEET['net_income_previous_year']
-    }
-    
-    bs_data_X6 = {
-        'Fixed Assets - Equipment (Net)': INITIAL_BALANCE_SHEET['gross_fixed_assets'] - INITIAL_BALANCE_SHEET['accumulated_depreciation'],
-        'Current Assets - Material Inv.': INITIAL_BALANCE_SHEET['inventory_materials_value'],
-        'Current Assets - Finished Inv.': INITIAL_BALANCE_SHEET['inventory_finished_value'],
-        'Current Assets - Receivables (AR)': INITIAL_BALANCE_SHEET['accounts_receivable'],
-        'Current Assets - Cash': INITIAL_BALANCE_SHEET['cash'],
-        'Equity - Capital Stock': INITIAL_BALANCE_SHEET['capital_stock'],
-        'Equity - Retained Earnings': INITIAL_BALANCE_SHEET['retained_earnings'],
-        'Equity - Net Income (Y)': INITIAL_BALANCE_SHEET['net_income_previous_year'],
-        'Liabilities - Long-Term Debt': INITIAL_BALANCE_SHEET['long_term_debt'],
-        'Liabilities - Bank Overdraft (ST)': INITIAL_BALANCE_SHEET['bank_overdraft'],
-        'Liabilities - Payables (AP)': INITIAL_BALANCE_SHEET['accounts_payable'],
-        'Liabilities - Taxes Payable': INITIAL_BALANCE_SHEET['income_tax_payable'],
-    }
-    current_assets = bs_data_X6['Current Assets - Material Inv.'] + bs_data_X6['Current Assets - Finished Inv.'] + bs_data_X6['Current Assets - Receivables (AR)'] + bs_data_X6['Current Assets - Cash']
-    bs_data_X6['TOTAL ASSETS'] = bs_data_X6['Fixed Assets - Equipment (Net)'] + current_assets
-    bs_data_X6['Total Equity'] = bs_data_X6['Equity - Capital Stock'] + bs_data_X6['Equity - Retained Earnings'] + bs_data_X6['Equity - Net Income (Y)']
-    current_liabilities = bs_data_X6['Liabilities - Bank Overdraft (ST)'] + bs_data_X6['Liabilities - Payables (AP)'] + bs_data_X6['Liabilities - Taxes Payable']
-    bs_data_X6['Total Liabilities'] = bs_data_X6['Liabilities - Long-Term Debt'] + current_liabilities
-    bs_data_X6['TOTAL LIABILITIES + EQUITY'] = bs_data_X6['Total Equity'] + bs_data_X6['Total Liabilities']
-    bs_data_X6['METRIC_ROE'] = 0
-    bs_data_X6['METRIC_Current_Ratio'] = current_assets / current_liabilities if current_liabilities > 0 else 0
-    bs_data = bs_data_X6 # Use this for display
-    
-    # Static Line & Inv data for X6
-    lines_display_X6_actual = {
-        'age_0': 0, 'age_1': INITIAL_LINE_AGES['age_1'], 'age_2': INITIAL_LINE_AGES['age_2'], 
-        'age_3': INITIAL_LINE_AGES['age_3'], 'age_4': INITIAL_LINE_AGES['age_4']
-    }
-    lines_flow_data = {
-        'opening_capacity': sum(INITIAL_LINE_AGES.values()) * UNITS_PER_LINE,
-        'capacity_purchased': 0,
-        'capacity_during_year': sum(INITIAL_LINE_AGES.values()) * UNITS_PER_LINE,
-        'capacity_scrapped': INITIAL_LINE_AGES['age_4'] * UNITS_PER_LINE, # This is what will be scrapped in X7
-        'capacity_next_year': (sum(INITIAL_LINE_AGES.values()) - INITIAL_LINE_AGES['age_4']) * UNITS_PER_LINE,
-        'park_composition_start': lines_display_X6_actual
-    }
-    
-    inv_display = {
-        'fg_opening': None, 'fg_produced': None, 'fg_sold': None,
-        'fg_ending': INITIAL_BALANCE_SHEET['inventory_finished_units'],
-        'mat_opening': None, 'mat_purchased': None, 'mat_used': None,
-        'mat_ending': INITIAL_BALANCE_SHEET['inventory_materials_units']
-    }
-    
-    # --- Display for X6 ---
+    if is_static:
+        st.info("Displaying Initial State at the end of Year X6 (Start of Simulation).")
+    else:
+        st.info(f"Displaying simulated results for year **{selected_year}**. All figures in thousands of CU (kCU).")
+
+    # --- Key Metrics Dashboard ---
     st.divider()
     m_col1, m_col2, m_col3, m_col4 = st.columns(4)
-    # (Metrics)
     with m_col1:
         st.metric(label="Net Income (kCU)", value=f"{is_display['Net Income']/1000:,.1f}" if is_display['Net Income'] is not None else "n/a")
     with m_col2:
@@ -549,283 +483,152 @@ with tabs[0]:
         st.metric(label="Current Ratio (Liquidity)", value=f"{bs_data['METRIC_Current_Ratio']:.2f}" if bs_data.get('METRIC_Current_Ratio') is not None else "n/a")
     st.divider()
     
+    # --- 3-Column Display (Excel-style) ---
     col1, col2, col3 = st.columns(3)
-    # (Display columns for X6)
+
     with col1:
         st.subheader("Cash Flow Budget (kCU)")
         show_item("Opening Balance (net)", cf_display['Opening Balance (net)'])
         show_item("Operating Cash Flow (CFO)", cf_display['Operating Cash Flow (CFO)'], is_total=True)
-        # ... (rest of CF)
+        show_item("... Cash In (Y-1)", cf_display['... Cash In (Y-1)'], is_sub=True, indent_level=1)
+        show_item("... Cash In (Y)", cf_display['... Cash In (Y)'], is_sub=True, indent_level=1)
+        
+        show_item("... Cash Out (Operating)", cf_display['... Cash Out (Operating)'], is_sub=True, is_negative=True, indent_level=1)
+        show_item("... ... Personnel", cf_display.get('Cash Out - Personnel'), is_sub=True, is_negative=True, indent_level=2)
+        show_item("... ... External & Mktg", cf_display.get('Cash Out - External & Mktg'), is_sub=True, is_negative=True, indent_level=2)
+        show_item("... ... Interest", cf_display.get('Cash Out - Interest'), is_sub=True, is_negative=True, indent_level=2)
+        show_item("... ... Taxes (from Y-1)", cf_display.get('Cash Out - Taxes (from Y-1)'), is_sub=True, is_negative=True, indent_level=2)
+        
+        st.markdown("<div style='padding-left: 40px; color: #444; font-size: 14px;'><b>... ... Cash Out for Purchases:</b></div>", unsafe_allow_html=True)
+        show_item("... ... ... Purchases (90%)", cf_display.get('Cash Out - Purchases (Current 90%)'), is_sub=True, is_negative=True, indent_level=3)
+        show_item("... ... ... Payables (from Y-1)", cf_display.get('Cash Out - Payables (from Y-1)'), is_sub=True, is_negative=True, indent_level=3)
+
+        show_item("Investing Cash Flow (CFI)", cf_display['Investing Cash Flow (CFI)'], is_total=True)
+        show_item("Financing Cash Flow (CFF)", cf_display['Financing Cash Flow (CFF)'], is_total=True)
+        st.divider()
+        show_item("Net Change in Cash", cf_display['Net Change in Cash'])
         show_item("Ending Balance (net)", cf_display['Ending Balance (net)'], is_total=True)
+        if cf_display['Ending Balance (net)'] is not None and cf_display['Ending Balance (net)'] < 0:
+            st.warning(f"Bank Overdraft: {cf_display['Ending Balance (net)']/1000:,.1f} kCU")
+
     with col2:
         st.subheader("Income Statement (kCU)")
         st.markdown("**Revenue**")
         show_item("Sales", is_display['Revenue - Sales'])
-        # ... (rest of IS)
+        show_item("Inventory Change (E-B)", is_display['Revenue - Inventory Change (E-B)'])
+        show_item("Total Operating Revenue", is_display.get('Operating Revenue'), is_total=True)
+        st.markdown("**Operating Expenses**")
+        show_item("Material Expense", is_display['Expenses - Material Expense'])
+        show_item("External (Rent, Tax...)", is_display['Expenses - External (Rent, Tax...)']) 
+        show_item("Marketing", is_display['Expenses - Marketing'])
+        show_item("Personnel", is_display['Expenses - Personnel'])
+        show_item("Depreciation", is_display['Expenses - Depreciation'])
+        show_item("Total Operating Expense", is_display.get('Operating Expense'), is_total=True)
+        st.divider()
+        show_item("EBIT", is_display.get('EBIT'), is_total=True)
+        show_item("Financial Charges", is_display['Expenses - Financial Charges'], is_negative=True)
+        st.divider()
+        show_item("Earnings Before Tax (EBT)", is_display['Earnings Before Tax (EBT)']) 
+        show_item("Taxes", is_display['Taxes'], is_negative=True)
         st.divider()
         show_item("Net Income", is_display['Net Income'], is_total=True)
+
     with col3:
         st.subheader("Balance Sheet (kCU)")
         st.markdown("**Assets**")
         show_item("Equipment (Net)", bs_data['Fixed Assets - Equipment (Net)'])
-        # ... (rest of BS)
+        show_item("Material Inventory", bs_data['Current Assets - Material Inv.'])
+        show_item("Finished Inventory", bs_data['Current Assets - Finished Inv.'])
+        show_item("Receivables (AR)", bs_data['Current Assets - Receivables (AR)'])
+        show_item("Cash", bs_data['Current Assets - Cash'])
         st.divider()
         show_item("TOTAL ASSETS", bs_data['TOTAL ASSETS'], is_total=True)
+        
         st.markdown("**Liabilities & Equity**")
         show_item("Capital Stock", bs_data['Equity - Capital Stock'])
-        # ... (rest of L&E)
+        show_item("Retained Earnings", bs_data['Equity - Retained Earnings'])
+        show_item("Net Income (Y)", bs_data['Equity - Net Income (Y)'])
+        show_item("Total Equity", bs_data['Total Equity'], is_total=True)
+        st.divider()
+        show_item("Long-Term Debt", bs_data['Liabilities - Long-Term Debt'])
+        show_item("Bank Overdraft (ST)", bs_data['Liabilities - Bank Overdraft (ST)'])
+        show_item("Payables (AP)", bs_data['Liabilities - Payables (AP)'])
+        show_item("Taxes Payable", bs_data['Liabilities - Taxes Payable'])
+        show_item("Total Liabilities", bs_data['Total Liabilities'], is_total=True)
         st.divider()
         show_item("TOTAL LIABILITIES + EQUITY", bs_data['TOTAL LIABILITIES + EQUITY'], is_total=True)
+        
+        if bs_data['TOTAL ASSETS'] is not None and not math.isclose(bs_data['TOTAL ASSETS'], bs_data['TOTAL LIABILITIES + EQUITY'], rel_tol=1e-3):
+            st.error(f"Balance Sheet Unbalanced! A={bs_data['TOTAL ASSETS']/1000:,.1f}k, L+E={bs_data['TOTAL LIABILITIES + EQUITY']/1000:,.1f}k")
 
     # --- Machine Tracking Section (v23) ---
     st.divider()
-    st.subheader(f"Capacity & Asset Lifecycle (Lines)")
-    st.metric(label=f"Opening Capacity (Start of {selected_year})", value=f"{lines_flow_data['opening_capacity']:,.0f} units")
-    st.metric(label=f"Opening Capacity (Start of X7)", value=f"{lines_flow_data['capacity_next_year']:,.0f} units",
-              delta=f"{-lines_flow_data['capacity_scrapped']:,.0f} units (To be scrapped in X7)", delta_color="inverse")
+    st.subheader(f"Capacity & Asset Lifecycle (Lines) - {selected_year}")
+
+    metric_col1, metric_col2, metric_col3 = st.columns(3)
+    next_year_label = f"X{int(selected_year.replace('X',''))+1}"
     
-    with st.expander("View Detailed Machine Park (Start of X6)"):
-        park = lines_flow_data['park_composition_start']
-        st.write(f"**Lines at 1 Year Old:** `{park.get('age_1', 0)}`")
-        st.write(f"**Lines at 2 Years Old:** `{park.get('age_2', 0)}`")
-        st.write(f"**Lines at 3 Years Old:** `{park.get('age_3', 0)}`")
-        st.write(f"**Lines at 4 Years Old (To be scrapped in X7):** `{park.get('age_4', 0)}`")
-    
+    if is_static:
+        # X6 Special Display
+        scrapped_in_X7 = lines_flow_data['capacity_scrapped']
+        st.metric(label=f"Opening Capacity (Start of {selected_year})", value=f"{lines_flow_data['opening_capacity']:,.0f} units")
+        st.metric(label=f"Projected Capacity (Start of X7)", value=f"{lines_flow_data['capacity_next_year']:,.0f} units",
+                  delta=f"{-scrapped_in_X7:,.0f} units (To be scrapped in X7)", delta_color="inverse")
+        
+        with st.expander("View Detailed Machine Park (Start of X6)"):
+            park = lines_flow_data['park_composition_start']
+            st.write(f"**Lines at 1 Year Old:** `{park.get('age_1', 0)}`")
+            st.write(f"**Lines at 2 Years Old:** `{park.get('age_2', 0)}`")
+            st.write(f"**Lines at 3 Years Old:** `{park.get('age_3', 0)}`")
+            st.write(f"**Lines at 4 Years Old (To be scrapped in X7):** `{park.get('age_4', 0)}`")
+
+    else:
+        # X7-X11 Display
+        with metric_col1:
+            st.metric(label=f"Opening Capacity (Start of {selected_year})", value=f"{lines_flow_data['opening_capacity']:,.0f} units")
+        with metric_col2:
+            st.metric(label=f"Total Capacity (During {selected_year})", 
+                      value=f"{lines_flow_data['capacity_during_year']:,.0f} units",
+                      delta=f"{lines_flow_data['capacity_purchased']:,.0f} (Purchased)")
+        with metric_col3:
+            st.metric(label=f"Opening Capacity (Start of {next_year_label})", 
+                      value=f"{lines_flow_data['capacity_next_year']:,.0f} units",
+                      delta=f"{-lines_flow_data['capacity_scrapped']:,.0f} (Scrapped EOY)", 
+                      delta_color="inverse")
+
+        with st.expander(f"View Detailed Machine Park (Start of {selected_year})"):
+            park = lines_flow_data['park_composition_start']
+            st.write(f"**New Lines (0 yrs old, purchased this year):** `{park.get('age_0', 0)}`")
+            st.write(f"**Lines at 1 Year Old:** `{park.get('age_1', 0)}`")
+            st.write(f"**Lines at 2 Years Old:** `{park.get('age_2', 0)}`")
+            st.write(f"**Lines at 3 Years Old:** `{park.get('age_3', 0)}`")
+            st.write(f"**Lines at 4 Years Old (Scrapped EOY {selected_year}):** `{park.get('age_4', 0)}`")
+
+
     # --- Inventory Tracking Section ---
     st.divider()
     st.subheader(f"Inventory Flow (Units) - Year {selected_year}")
-    # ... (Inventory flow display)
+    
     inv_col1, inv_col2 = st.columns(2)
+    
     with inv_col1:
         st.markdown("##### Finished Goods (Units)")
+        show_item("Opening Stock", inv_display.get('fg_opening'), is_unit=True)
+        show_item("+ Units Produced", inv_display.get('fg_produced'), is_unit=True, is_sub=True, indent_level=1)
+        show_item("- Units Sold", inv_display.get('fg_sold'), is_unit=True, is_sub=True, is_negative=True, indent_level=1)
         show_item("Ending Stock", inv_display.get('fg_ending'), is_total=True, is_unit=True)
+
     with inv_col2:
         st.markdown("##### Raw Materials (Units)")
+        show_item("Opening Stock", inv_display.get('mat_opening'), is_unit=True)
+        show_item("+ Units Purchased", inv_display.get('mat_purchased'), is_unit=True, is_sub=True, indent_level=1)
+        show_item("- Units Used", inv_display.get('mat_used'), is_unit=True, is_sub=True, is_negative=True, indent_level=1)
         show_item("Ending Stock", inv_display.get('mat_ending'), is_total=True, is_unit=True)
 
+# --- Initial Run Handling ---
+# This check handles the very first load, before any interaction
+# It's now redundant because the main display logic is inside the tab loops
+# We just need to ensure the tabs are created.
 
-# --- Loop for Dynamic Tabs (X7-X11) ---
-for i, year_label in enumerate(tab_names[1:]): # Start from X7
-    with tabs[i+1]:
-        st.header(f"Financial Statement Projection - Year {year_label}")
-        st.info(f"Displaying simulated results for year **{year_label}**. All figures in thousands of CU (kCU).")
-        
-        # Retrieve data for this year
-        cf_display = results_cf[year_label]
-        is_display = results_is[year_label]
-        bs_data = results_bs[year_label]
-        lines_flow_data = results_lines[year_label]
-        inv_display = results_inventory[year_label]
-
-        # --- Key Metrics Dashboard ---
-        st.divider()
-        m_col1, m_col2, m_col3, m_col4 = st.columns(4)
-        with m_col1:
-            st.metric(label="Net Income (kCU)", value=f"{is_display['Net Income']/1000:,.1f}" if is_display['Net Income'] is not None else "n/a")
-        with m_col2:
-            st.metric(label="Ending Cash (net) (kCU)", value=f"{cf_display['Ending Balance (net)']/1000:,.1f}" if cf_display['Ending Balance (net)'] is not None else "n/a")
-        with m_col3:
-            st.metric(label="Return on Equity (ROE)", value=f"{bs_data['METRIC_ROE']:.1%}" if bs_data.get('METRIC_ROE') is not None else "n/a")
-        with m_col4:
-            st.metric(label="Current Ratio (Liquidity)", value=f"{bs_data['METRIC_Current_Ratio']:.2f}" if bs_data.get('METRIC_Current_Ratio') is not None else "n/a")
-        st.divider()
-        
-        # --- 3-Column Display (Excel-style) ---
-        col1, col2, col3 = st.columns(3)
-
-        with col1:
-            st.subheader("Cash Flow Budget (kCU)")
-            show_item("Opening Balance (net)", cf_display['Opening Balance (net)'])
-            show_item("Operating Cash Flow (CFO)", cf_display['Operating Cash Flow (CFO)'], is_total=True)
-            show_item("... Cash In (Y-1)", cf_display['... Cash In (Y-1)'], is_sub=True, indent_level=1)
-            show_item("... Cash In (Y)", cf_display['... Cash In (Y)'], is_sub=True, indent_level=1)
-            
-            show_item("... Cash Out (Operating)", cf_display['... Cash Out (Operating)'], is_sub=True, is_negative=True, indent_level=1)
-            show_item("... ... Personnel", cf_display['Cash Out - Personnel'], is_sub=True, is_negative=True, indent_level=2)
-            show_item("... ... External & Mktg", cf_display['Cash Out - External & Mktg'], is_sub=True, is_negative=True, indent_level=2)
-            show_item("... ... Interest", cf_display['Cash Out - Interest'], is_sub=True, is_negative=True, indent_level=2)
-            show_item("... ... Taxes (from Y-1)", cf_display['Cash Out - Taxes (from Y-1)'], is_sub=True, is_negative=True, indent_level=2)
-            
-            st.markdown("<div style='padding-left: 40px; color: #444; font-size: 14px;'><b>... ... Cash Out for Purchases:</b></div>", unsafe_allow_html=True)
-            show_item("... ... ... Purchases (90%)", cf_display['Cash Out - Purchases (Current 90%)'], is_sub=True, is_negative=True, indent_level=3)
-            show_item("... ... ... Payables (from Y-1)", cf_display['Cash Out - Payables (from Y-1)'], is_sub=True, is_negative=True, indent_level=3)
-
-            show_item("Investing Cash Flow (CFI)", cf_display['Investing Cash Flow (CFI)'], is_total=True)
-            show_item("Financing Cash Flow (CFF)", cf_display['Financing Cash Flow (CFF)'], is_total=True)
-            st.divider()
-            show_item("Net Change in Cash", cf_display['Net Change in Cash'])
-            show_item("Ending Balance (net)", cf_display['Ending Balance (net)'], is_total=True)
-            if cf_display['Ending Balance (net)'] is not None and cf_display['Ending Balance (net)'] < 0:
-                st.warning(f"Bank Overdraft: {cf_display['Ending Balance (net)']/1000:,.1f} kCU")
-
-        with col2:
-            st.subheader("Income Statement (kCU)")
-            st.markdown("**Revenue**")
-            show_item("Sales", is_display['Revenue - Sales'])
-            show_item("Inventory Change (E-B)", is_display['Revenue - Inventory Change (E-B)'])
-            show_item("Total Operating Revenue", is_display.get('Operating Revenue'), is_total=True)
-            st.markdown("**Operating Expenses**")
-            show_item("Material Expense", is_display['Expenses - Material Expense'])
-            show_item("External (Rent, Tax...)", is_display['Expenses - External (Rent, Tax...)']) 
-            show_item("Marketing", is_display['Expenses - Marketing'])
-            show_item("Personnel", is_display['Expenses - Personnel'])
-            show_item("Depreciation", is_display['Expenses - Depreciation'])
-            show_item("Total Operating Expense", is_display.get('Operating Expense'), is_total=True)
-            st.divider()
-            show_item("EBIT", is_display.get('EBIT'), is_total=True)
-            show_item("Financial Charges", is_display['Expenses - Financial Charges'], is_negative=True)
-            st.divider()
-            show_item("Earnings Before Tax (EBT)", is_display['Earnings Before Tax (EBT)']) 
-            show_item("Taxes", is_display['Taxes'], is_negative=True)
-            st.divider()
-            show_item("Net Income", is_display['Net Income'], is_total=True)
-
-        with col3:
-            st.subheader("Balance Sheet (kCU)")
-            st.markdown("**Assets**")
-            show_item("Equipment (Net)", bs_data['Fixed Assets - Equipment (Net)'])
-            show_item("Material Inventory", bs_data['Current Assets - Material Inv.'])
-            show_item("Finished Inventory", bs_data['Current Assets - Finished Inv.'])
-            show_item("Receivables (AR)", bs_data['Current Assets - Receivables (AR)'])
-            show_item("Cash", bs_data['Current Assets - Cash'])
-            st.divider()
-            show_item("TOTAL ASSETS", bs_data['TOTAL ASSETS'], is_total=True)
-            
-            st.markdown("**Liabilities & Equity**")
-            show_item("Capital Stock", bs_data['Equity - Capital Stock'])
-            show_item("Retained Earnings", bs_data['Equity - Retained Earnings'])
-            show_item("Net Income (Y)", bs_data['Equity - Net Income (Y)'])
-            show_item("Total Equity", bs_data['Total Equity'], is_total=True)
-            st.divider()
-            show_item("Long-Term Debt", bs_data['Liabilities - Long-Term Debt'])
-            show_item("Bank Overdraft (ST)", bs_data['Liabilities - Bank Overdraft (ST)'])
-            show_item("Payables (AP)", bs_data['Liabilities - Payables (AP)'])
-            show_item("Taxes Payable", bs_data['Liabilities - Taxes Payable'])
-            show_item("Total Liabilities", bs_data['Total Liabilities'], is_total=True)
-            st.divider()
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    st.subheader("Cash Flow Budget (kCU)")
-    show_item("Opening Balance (net)", cf_display['Opening Balance (net)'])
-    show_item("Operating Cash Flow (CFO)", cf_display['Operating Cash Flow (CFO)'], is_total=True)
-    show_item("... Cash In (Y-1)", cf_display['... Cash In (Y-1)'], is_sub=True, indent_level=1)
-    show_item("... Cash In (Y)", cf_display['... Cash In (Y)'], is_sub=True, indent_level=1)
-    
-    show_item("... Cash Out (Operating)", cf_display['... Cash Out (Operating)'], is_sub=True, is_negative=True, indent_level=1)
-    show_item("... ... Personnel", cf_display['Cash Out - Personnel'], is_sub=True, is_negative=True, indent_level=2)
-    show_item("... ... External & Mktg", cf_display['Cash Out - External & Mktg'], is_sub=True, is_negative=True, indent_level=2)
-    show_item("... ... Interest", cf_display['Cash Out - Interest'], is_sub=True, is_negative=True, indent_level=2)
-    show_item("... ... Taxes (from Y-1)", cf_display['Cash Out - Taxes (from Y-1)'], is_sub=True, is_negative=True, indent_level=2)
-    
-    st.markdown("<div style='padding-left: 40px; color: #444; font-size: 14px;'><b>... ... Cash Out for Purchases:</b></div>", unsafe_allow_html=True)
-    show_item("... ... ... Purchases (90%)", cf_display['Cash Out - Purchases (Current 90%)'], is_sub=True, is_negative=True, indent_level=3)
-    show_item("... ... ... Payables (from Y-1)", cf_display['Cash Out - Payables (from Y-1)'], is_sub=True, is_negative=True, indent_level=3)
-
-    show_item("Investing Cash Flow (CFI)", cf_display['Investing Cash Flow (CFI)'], is_total=True)
-    show_item("Financing Cash Flow (CFF)", cf_display['Financing Cash Flow (CFF)'], is_total=True)
-    st.divider()
-    show_item("Net Change in Cash", cf_display['Net Change in Cash'])
-    show_item("Ending Balance (net)", cf_display['Ending Balance (net)'], is_total=True)
-    if cf_display['Ending Balance (net)'] is not None and cf_display['Ending Balance (net)'] < 0:
-        st.warning(f"Bank Overdraft: {cf_display['Ending Balance (net)']/1000:,.1f} kCU")
-
-with col2:
-    st.subheader("Income Statement (kCU)")
-    st.markdown("**Revenue**")
-    show_item("Sales", is_display['Revenue - Sales'])
-    show_item("Inventory Change (E-B)", is_display['Revenue - Inventory Change (E-B)'])
-    show_item("Total Operating Revenue", is_display.get('Operating Revenue'), is_total=True)
-    st.markdown("**Operating Expenses**")
-    show_item("Material Expense", is_display['Expenses - Material Expense'])
-    show_item("External (Rent, Tax...)", is_display['Expenses - External (Rent, Tax...)']) 
-    show_item("Marketing", is_display['Expenses - Marketing'])
-    show_item("Personnel", is_display['Expenses - Personnel'])
-    show_item("Depreciation", is_display['Expenses - Depreciation'])
-    show_item("Total Operating Expense", is_display.get('Operating Expense'), is_total=True)
-    st.divider()
-    show_item("EBIT", is_display.get('EBIT'), is_total=True)
-    show_item("Financial Charges", is_display['Expenses - Financial Charges'], is_negative=True)
-    st.divider()
-    show_item("Earnings Before Tax (EBT)", is_display['Earnings Before Tax (EBT)']) 
-    show_item("Taxes", is_display['Taxes'], is_negative=True)
-    st.divider()
-    show_item("Net Income", is_display['Net Income'], is_total=True)
-
-with col3:
-    st.subheader("Balance Sheet (kCU)")
-    st.markdown("**Assets**")
-    show_item("Equipment (Net)", bs_data['Fixed Assets - Equipment (Net)'])
-    show_item("Material Inventory", bs_data['Current Assets - Material Inv.'])
-    show_item("Finished Inventory", bs_data['Current Assets - Finished Inv.'])
-    show_item("Receivables (AR)", bs_data['Current Assets - Receivables (AR)'])
-    show_item("Cash", bs_data['Current Assets - Cash'])
-    st.divider()
-    show_item("TOTAL ASSETS", bs_data['TOTAL ASSETS'], is_total=True)
-    
-    st.markdown("**Liabilities & Equity**")
-    show_item("Capital Stock", bs_data['Equity - Capital Stock'])
-    show_item("Retained Earnings", bs_data['Equity - Retained Earnings'])
-    show_item("Net Income (Y)", bs_data['Equity - Net Income (Y)'])
-    show_item("Total Equity", bs_data['Total Equity'], is_total=True)
-    st.divider()
-    show_item("Long-Term Debt", bs_data['Liabilities - Long-Term Debt'])
-    show_item("Bank Overdraft (ST)", bs_data['Liabilities - Bank Overdraft (ST)'])
-    show_item("Payables (AP)", bs_data['Liabilities - Payables (AP)'])
-    show_item("Taxes Payable", bs_data['Liabilities - Taxes Payable'])
-    show_item("Total Liabilities", bs_data['Total Liabilities'], is_total=True)
-    st.divider()
-    show_item("TOTAL LIABILITIES + EQUITY", bs_data['TOTAL LIABILITIES + EQUITY'], is_total=True)
-    
-    if bs_data['TOTAL ASSETS'] is not None and not math.isclose(bs_data['TOTAL ASSETS'], bs_data['TOTAL LIABILITIES + EQUITY'], rel_tol=1e-3):
-        st.error(f"Balance Sheet Unbalanced! A={bs_data['TOTAL ASSETS']/1000:,.1f}k, L+E={bs_data['TOTAL LIABILITIES + EQUITY']/1000:,.1f}k")
-
-# --- Machine Tracking Section (v23) ---
-st.divider()
-st.subheader(f"Capacity & Asset Lifecycle (Lines) - {selected_year}")
-
-metric_col1, metric_col2, metric_col3 = st.columns(3)
-next_year_label = f"X{int(selected_year.replace('X',''))+1}"
-
-with metric_col1:
-    st.metric(label=f"Opening Capacity (Start of {selected_year})", value=f"{lines_flow_data['opening_capacity']:,.0f} units")
-with metric_col2:
-    st.metric(label=f"Total Capacity (During {selected_year})", 
-              value=f"{lines_flow_data['capacity_during_year']:,.0f} units",
-              delta=f"{lines_flow_data['capacity_purchased']:,.0f} (Purchased)")
-with metric_col3:
-    st.metric(label=f"Opening Capacity (Start of {next_year_label})", 
-              value=f"{lines_flow_data['capacity_next_year']:,.0f} units",
-              delta=f"{-lines_flow_data['capacity_scrapped']:,.0f} (Scrapped EOY)", 
-              delta_color="inverse")
-
-with st.expander(f"View Detailed Machine Park (Start of {selected_year})"):
-    park = lines_flow_data['park_composition_start']
-    st.write(f"**New Lines (0 yrs old):** `{park.get('age_0', 0)}`")
-    st.write(f"**Lines at 1 Year Old:** `{park.get('age_1', 0)}`")
-    st.write(f"**Lines at 2 Years Old:** `{park.get('age_2', 0)}`")
-    st.write(f"**Lines at 3 Years Old:** `{park.get('age_3', 0)}`")
-    st.write(f"**Lines at 4 Years Old (Scrapped EOY {selected_year}):** `{park.get('age_4', 0)}`")
-
-# --- Inventory Tracking Section ---
-st.divider()
-st.subheader(f"Inventory Flow (Units) - Year {selected_year}")
-
-inv_col1, inv_col2 = st.columns(2)
-
-with inv_col1:
-    st.markdown("##### Finished Goods (Units)")
-    show_item("Opening Stock", inv_display.get('fg_opening'), is_unit=True)
-    show_item("+ Units Produced", inv_display.get('fg_produced'), is_unit=True, is_sub=True, indent_level=1)
-    show_item("- Units Sold", inv_display.get('fg_sold'), is_unit=True, is_sub=True, is_negative=True, indent_level=1)
-    show_item("Ending Stock", inv_display.get('fg_ending'), is_total=True, is_unit=True)
-
-with inv_col2:
-    st.markdown("##### Raw Materials (Units)")
-    show_item("Opening Stock", inv_display.get('mat_opening'), is_unit=True)
-    show_item("+ Units Purchased", inv_display.get('mat_purchased'), is_unit=True, is_sub=True, indent_level=1)
-    show_item("- Units Used", inv_display.get('mat_used'), is_unit=True, is_sub=True, is_negative=True, indent_level=1)
-    show_item("Ending Stock", inv_display.get('mat_ending'), is_total=True, is_unit=True)
-
-st.sidebar.info("App created by Gemini (v23 - Lifecycle Fix).")
+st.sidebar.info("App created by Gemini (v24 - UI & Scope Fix).")
 
