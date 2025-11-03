@@ -359,7 +359,7 @@ prior_ni = INITIAL_BALANCE_SHEET['net_income_previous_year'] # Start with 90k
 with st.sidebar.expander("Year X7 (Mandatory)", expanded=True):
     dec_X7 = {}
     dec_X7['price'] = st.number_input("1.1 Unit Selling Price (CU)", 
-        min_value=30.0, max_value=100.0, value=42.0, step=0.5, key='price_X7')
+        min_value=36.0, max_value=48.0, value=42.0, step=1, key='price_X7')
     dec_X7['prod_volume'] = st.select_slider("1.2 Target Production Volume (units)",
         options=prod_volume_options, value=100000, key='prod_X7',
         help="The simulator will automatically buy/hire to meet this target.")
