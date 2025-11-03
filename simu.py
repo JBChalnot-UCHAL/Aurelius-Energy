@@ -352,7 +352,7 @@ st.write("Model based on the ACC (EMBA) case. This version incorporates fixes fr
 st.sidebar.header("Decision Parameters")
 st.sidebar.markdown("Use the expanders to set decisions year by year. The simulation updates automatically.")
 
-prod_volume_options = list(range(100000, 200001, 10000))
+prod_volume_options = list(range(100000, 400001, 10000))
 all_decisions = {}
 prior_ni = INITIAL_BALANCE_SHEET['net_income_previous_year'] # Start with 90k
 
