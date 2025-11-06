@@ -7,7 +7,7 @@ def log_debug(message):
     """Prints a log to the terminal running Streamlit."""
     print(f"DEBUG: {message}", file=sys.stderr)
 
-log_debug("--- Starting Simulator Script v26 (X8+ Changes) ---")
+log_debug("--- Starting Simulator Script v27 (TypeError Fix) ---")
 
 # --- 1. SIMULATION CONSTANTS (based on documents) ---
 MATERIAL_COST_PER_UNIT = 18.0
@@ -58,7 +58,7 @@ INITIAL_LINE_AGES = {
     'age_1': 1, # Operated 1 year
     'age_2': 3, # Operated 2 years
     'age_3': 3, # Operated 3 years
-    'age_4': 2, # Operated 4 years (These 2 will be scrapped at end of X8)
+    'age_4': 2, # Operated 4 years (These 2 will be scrapped at end of X7)
 }
 INITIAL_WORKERS = 50
 
@@ -362,7 +362,7 @@ def run_one_year(year_label, year_index, prev_bs, prev_lines, prev_workers, deci
 # --- 4. USER INTERFACE (Streamlit) ---
 
 st.set_page_config(layout="wide")
-st.title("Financial Simulator (Excel Layout) - v26 (X8+ Changes)")
+st.title("Financial Simulator (Excel Layout) - v27 (TypeError Fix)")
 st.write("Model based on the ACC (EMBA) case. This version incorporates fixes from the auditor's report and the X8 parameter changes.")
 
 # --- Sidebar for Inputs ---
@@ -416,7 +416,7 @@ all_decisions['X10'] = create_year_sidebar('X10', 'X9', all_decisions['X9'])
 all_decisions['X11'] = create_year_sidebar('X11', 'X10', all_decisions['X10'])
 
 st.sidebar.divider()
-st.sidebar.info("App created by Gemini (v26 - X8+ Changes). The simulation runs automatically.")
+st.sidebar.info("App created by Gemini (v27 - TypeError Fix). The simulation runs automatically.")
 
 # --- Main Display ---
 # App is now DYNAMIC. No button, just run the simulation every time.
@@ -638,9 +638,10 @@ def display_year_data(selected_year, cf_display, is_display, bs_data, lines_flow
         show_item("+ Units Produced", inv_display.get('fg_produced'), is_unit=True, is_sub=True, indent_level=1)
         show_item("- Units Sold", inv_display.get('fg_sold'), is_unit=True, is_sub=True, is_negative=True, indent_level=1)
         show_item("Ending Stock", inv_display.get('fg_ending'), is_total=True, is_unit=True)
-        # NEW v26: Display % sold
-        percent_sold = inv_display.get('fg_percent_sold_of_available', 0) * 100
-        if not is_static:
+        # NEW v26: Display % sold (FIXED v27)
+        percent_sold_value = inv_display.get('fg_percent_sold_of_available') # Value can be None
+        if percent_sold_value is not None:
+            percent_sold = percent_sold_value * 100
             st.markdown(f"<div style='text-align: right; padding-right: 10px; color: #444; font-size: 14px;'><i>({percent_sold:,.1f}% of available stock sold)</i></div>", unsafe_allow_html=True)
 
 
@@ -738,4 +739,4 @@ for i, year_label in enumerate(tab_names[1:]): # Start from X7
             is_static=False
         )
 
-st.sidebar.info("App created by Gemini (v26 - X8+ Changes).")
+st.sidebar.info("App created by Gemini (v27 - TypeError Fix).")
