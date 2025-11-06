@@ -376,7 +376,7 @@ prior_ni = INITIAL_BALANCE_SHEET['net_income_previous_year'] # Start with 90k
 with st.sidebar.expander("Year X7 (Mandatory)", expanded=True):
     dec_X7 = {}
     dec_X7['price'] = st.number_input("1.1 Unit Selling Price (CU)", 
-        min_value=35.0, max_value=55.0, value=42.0, step=1, key='price_X7') # NEW RANGE v26
+        min_value=35.0, max_value=55.0, value=42.0, step=1.0, key='price_X7') # NEW RANGE v26
     dec_X7['prod_volume'] = st.select_slider("1.2 Target Production Volume (units)",
         options=prod_volume_options, value=110000, key='prod_X7',
         help="The simulator will automatically buy/hire to meet this target.")
@@ -396,7 +396,7 @@ def create_year_sidebar(year_label, prev_year_label, default_decisions):
     with st.sidebar.expander(f"Year {year_label} (default = {prev_year_label})"):
         dec = {}
         dec['price'] = st.number_input("1.1 Unit Selling Price (CU)", 
-            min_value=35.0, max_value=55.0, value=default_decisions['price'], step=1, key=f'price_{year_label}') # NEW RANGE v26
+            min_value=35.0, max_value=55.0, value=default_decisions['price'], step=1.0, key=f'price_{year_label}') # NEW RANGE v26
         dec['prod_volume'] = st.select_slider("1.2 Target Production Volume (units)",
             options=prod_volume_options, value=default_decisions['prod_volume'], key=f'prod_{year_label}')
         dec['target_sales_units'] = st.number_input("1.3 Target Sales Volume (units)", # NEW v26
