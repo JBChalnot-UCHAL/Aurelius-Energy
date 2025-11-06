@@ -7,7 +7,7 @@ def log_debug(message):
     """Prints a log to the terminal running Streamlit."""
     print(f"DEBUG: {message}", file=sys.stderr)
 
-log_debug("--- Starting Simulator Script v25 (UI & Lifecycle Fix) ---")
+log_debug("--- Starting Simulator Script v26 (X8+ Changes) ---")
 
 # --- 1. SIMULATION CONSTANTS (based on documents) ---
 MATERIAL_COST_PER_UNIT = 18.0
@@ -20,7 +20,8 @@ UNITS_PER_LINE = 10000.0
 COST_PER_NEW_LINE = 50000.0
 DEPRECIATION_PER_LINE = 10000.0
 BASE_ADMIN_SALARIES = 300000.0
-RENT_FACTORY = 300000.0
+RENT_FACTORY_X7 = 300000.0 # Original rent
+RENT_FACTORY_X8_PLUS = 600000.0 # New rent from X8 onwards
 PROPERTY_TAX = 40000.0
 AUDITING_FEES = 0.0 # Assumption
 EXISTING_DEBT = 200000.0
@@ -28,7 +29,8 @@ INTEREST_RATE_DEBT = 0.08
 INTEREST_RATE_OVERDRAFT = 0.10
 DEBT_REPAYMENT_YEAR = 2 # Year X8
 TAX_RATE = 0.40
-CASH_PAYMENT_RATE_SALES = 0.85
+CASH_PAYMENT_RATE_SALES_X7 = 0.85 # Original payment rate
+CASH_PAYMENT_RATE_SALES_X8_PLUS = 0.80 # New payment rate from X8
 CASH_PAYMENT_RATE_PURCHASES = 0.90
 
 # --- 2. INITIAL STATE (END OF YEAR X6) ---
@@ -56,7 +58,7 @@ INITIAL_LINE_AGES = {
     'age_1': 1, # Operated 1 year
     'age_2': 3, # Operated 2 years
     'age_3': 3, # Operated 3 years
-    'age_4': 2, # Operated 4 years
+    'age_4': 2, # Operated 4 years (These 2 will be scrapped at end of X8)
 }
 INITIAL_WORKERS = 50
 
@@ -106,8 +108,15 @@ def run_one_year(year_label, year_index, prev_bs, prev_lines, prev_workers, deci
     # C1. Sales & Revenue
     opening_inv_units = prev_bs['inventory_finished_units']
     total_available_for_sale = opening_inv_units + production_volume
-    actual_sales_volume = total_available_for_sale * decisions['percent_sold']
-    log_debug(f"[{year_label}] Sales: Available={total_available_for_sale}, %Sold={decisions['percent_sold']*100}%, Actual Sold={actual_sales_volume}")
+    
+    # NEW LOGIC (v26): Use target units, capped by available
+    target_sales_units = decisions['target_sales_units']
+    actual_sales_volume = min(target_sales_units, total_available_for_sale)
+    
+    # For display purposes, calculate the % sold
+    percent_sold_of_available = (actual_sales_volume / total_available_for_sale) if total_available_for_sale > 0 else 0
+    log_debug(f"[{year_label}] Sales: Available={total_available_for_sale}, Target={target_sales_units}, Actual Sold={actual_sales_volume} ({percent_sold_of_available*100:.1f}%)")
+    
     revenue = actual_sales_volume * decisions['price']
     
     # C2. Finished Inventory Change (E-B)
@@ -132,9 +141,12 @@ def run_one_year(year_label, year_index, prev_bs, prev_lines, prev_workers, deci
     
     material_expense = cost_materials_to_purchase + change_in_raw_inv
     
-    # C5. Other Operating Expenses
+    # C5. Other Operating Expenses (NEW LOGIC v26)
+    rent_for_year = RENT_FACTORY_X8_PLUS if year_index >= 2 else RENT_FACTORY_X7 # year_index 1 is X7, 2 is X8
+    log_debug(f"[{year_label}] Rent for year: {rent_for_year}")
+    
     personnel_expenses = current_workers * LABOR_COST_PER_WORKER + BASE_ADMIN_SALARIES
-    external_expenses_base = RENT_FACTORY + PROPERTY_TAX + AUDITING_FEES
+    external_expenses_base = rent_for_year + PROPERTY_TAX + AUDITING_FEES
     depreciation_expense = total_lines_for_year * DEPRECIATION_PER_LINE
     
     # C6. Marketing Expense (Base = All other OpEx)
@@ -150,10 +162,14 @@ def run_one_year(year_label, year_index, prev_bs, prev_lines, prev_workers, deci
     interest_overdraft = 0.0
     
     # --- D. CASH FLOW STATEMENT (CF) ---
-    
+
+    # Determine year-specific rates (X8+ changes) (NEW LOGIC v26)
+    current_cash_payment_rate_sales = CASH_PAYMENT_RATE_SALES_X8_PLUS if year_index >= 2 else CASH_PAYMENT_RATE_SALES_X7
+    log_debug(f"[{year_label}] Sales cash payment rate: {current_cash_payment_rate_sales}")
+
     # D1. Tentative Cash Flow (to find Overdraft)
     cash_from_sales_AR = prev_bs['accounts_receivable']
-    cash_from_sales_current = revenue * CASH_PAYMENT_RATE_SALES
+    cash_from_sales_current = revenue * current_cash_payment_rate_sales
     
     cash_out_purchases_AP = prev_bs['accounts_payable']
     cash_out_purchases_current = cost_materials_to_purchase * CASH_PAYMENT_RATE_PURCHASES
@@ -175,7 +191,7 @@ def run_one_year(year_label, year_index, prev_bs, prev_lines, prev_workers, deci
     dividends_paid = min(decisions['dividends_amount'], prev_bs['net_income_previous_year'])
     
     debt_repayment = 0
-    if year_index == DEBT_REPAYMENT_YEAR:
+    if year_index == DEBT_REPAYMENT_YEAR: # DEBT_REPAYMENT_YEAR = 2 (X8)
         debt_repayment = min(prev_bs['long_term_debt'], EXISTING_DEBT)
         log_debug(f"[{year_label}] DEBT REPAYMENT: {debt_repayment}")
         
@@ -244,7 +260,7 @@ def run_one_year(year_label, year_index, prev_bs, prev_lines, prev_workers, deci
     cf_data['Net Change in Cash'] = net_cash_flow
     cf_data['Ending Balance (net)'] = ending_net_cash
     
-    # E4. Final Balance Sheet
+    # E4. Final Balance Sheet (NEW LOGIC v26)
     if ending_net_cash >= 0:
         bs_internal['cash'] = ending_net_cash
         bs_internal['bank_overdraft'] = 0.0
@@ -252,7 +268,7 @@ def run_one_year(year_label, year_index, prev_bs, prev_lines, prev_workers, deci
         bs_internal['cash'] = 0.0
         bs_internal['bank_overdraft'] = -ending_net_cash
         
-    bs_internal['accounts_receivable'] = revenue * (1.0 - CASH_PAYMENT_RATE_SALES)
+    bs_internal['accounts_receivable'] = revenue * (1.0 - current_cash_payment_rate_sales)
     bs_internal['inventory_materials_units'] = ending_mat_units
     bs_internal['inventory_materials_value'] = ending_inv_mat_val
     bs_internal['inventory_finished_units'] = ending_inv_units
@@ -330,6 +346,7 @@ def run_one_year(year_label, year_index, prev_bs, prev_lines, prev_workers, deci
     inventory_flow_data['fg_produced'] = production_volume
     inventory_flow_data['fg_sold'] = actual_sales_volume
     inventory_flow_data['fg_ending'] = ending_inv_units
+    inventory_flow_data['fg_percent_sold_of_available'] = percent_sold_of_available # NEW v26
     inventory_flow_data['mat_opening'] = materials_from_stock
     inventory_flow_data['mat_purchased'] = materials_to_purchase
     inventory_flow_data['mat_used'] = materials_needed
@@ -345,8 +362,8 @@ def run_one_year(year_label, year_index, prev_bs, prev_lines, prev_workers, deci
 # --- 4. USER INTERFACE (Streamlit) ---
 
 st.set_page_config(layout="wide")
-st.title("Financial Simulator (Excel Layout) - v25 (UI Fix)")
-st.write("Model based on the ACC (EMBA) case. This version incorporates fixes from the auditor's report.")
+st.title("Financial Simulator (Excel Layout) - v26 (X8+ Changes)")
+st.write("Model based on the ACC (EMBA) case. This version incorporates fixes from the auditor's report and the X8 parameter changes.")
 
 # --- Sidebar for Inputs ---
 st.sidebar.header("Decision Parameters")
@@ -359,14 +376,13 @@ prior_ni = INITIAL_BALANCE_SHEET['net_income_previous_year'] # Start with 90k
 with st.sidebar.expander("Year X7 (Mandatory)", expanded=True):
     dec_X7 = {}
     dec_X7['price'] = st.number_input("1.1 Unit Selling Price (CU)", 
-        min_value=36.0, max_value=48.0, value=42.0, step=1.0, key='price_X7')
+        min_value=35.0, max_value=55.0, value=42.0, step=0.5, key='price_X7') # NEW RANGE v26
     dec_X7['prod_volume'] = st.select_slider("1.2 Target Production Volume (units)",
         options=prod_volume_options, value=100000, key='prod_X7',
         help="The simulator will automatically buy/hire to meet this target.")
-    dec_X7['percent_sold_display'] = st.slider("% of Available Stock Sold",
-        min_value=80.0, max_value=100.0, value=100.0, step=1.0, format="%.0f%%", key='sold_X7',
-        help="Simulates demand. 100% = you sell all available stock (opening + produced).")
-    dec_X7['percent_sold'] = dec_X7['percent_sold_display'] / 100.0
+    dec_X7['target_sales_units'] = st.number_input("1.3 Target Sales Volume (units)", # NEW v26
+        min_value=0, max_value=500000, value=105000, step=1000, key='sales_X7',
+        help="Your intended sales volume. Actual sales will be capped by available stock (opening + produced).")
     dec_X7['marketing_pct'] = st.slider("4.1 Marketing Budget (% of Total Costs)",
         min_value=1.0, max_value=15.0, value=10.0, step=0.1, key='mktg_X7',
         help="Calculated as % of Total Costs (Material Exp + Personnel + External + Depr).") / 100.0
@@ -380,12 +396,12 @@ def create_year_sidebar(year_label, prev_year_label, default_decisions):
     with st.sidebar.expander(f"Year {year_label} (default = {prev_year_label})"):
         dec = {}
         dec['price'] = st.number_input("1.1 Unit Selling Price (CU)", 
-            min_value=30.0, max_value=100.0, value=default_decisions['price'], step=0.5, key=f'price_{year_label}')
+            min_value=35.0, max_value=55.0, value=default_decisions['price'], step=0.5, key=f'price_{year_label}') # NEW RANGE v26
         dec['prod_volume'] = st.select_slider("1.2 Target Production Volume (units)",
             options=prod_volume_options, value=default_decisions['prod_volume'], key=f'prod_{year_label}')
-        dec['percent_sold_display'] = st.slider("% of Available Stock Sold",
-            min_value=80.0, max_value=100.0, value=default_decisions['percent_sold_display'], step=1.0, format="%.0f%%", key=f'sold_{year_label}')
-        dec['percent_sold'] = dec['percent_sold_display'] / 100.0
+        dec['target_sales_units'] = st.number_input("1.3 Target Sales Volume (units)", # NEW v26
+            min_value=0, max_value=500000, value=default_decisions['target_sales_units'], step=1000, key=f'sales_{year_label}',
+            help="Your intended sales volume. Actual sales will be capped by available stock (opening + produced).")
         dec['marketing_pct'] = st.slider("4.1 Marketing Budget (% of Total Costs)",
             min_value=1.0, max_value=15.0, value=default_decisions['marketing_pct']*100.0, step=0.1, key=f'mktg_{year_label}',
             help="Calculated as % of Total Costs (Material Exp + Personnel + External + Depr).") / 100.0
@@ -400,7 +416,7 @@ all_decisions['X10'] = create_year_sidebar('X10', 'X9', all_decisions['X9'])
 all_decisions['X11'] = create_year_sidebar('X11', 'X10', all_decisions['X10'])
 
 st.sidebar.divider()
-st.sidebar.info("App created by Gemini (v25 - UI & Lifecycle Fix). The simulation runs automatically.")
+st.sidebar.info("App created by Gemini (v26 - X8+ Changes). The simulation runs automatically.")
 
 # --- Main Display ---
 # App is now DYNAMIC. No button, just run the simulation every time.
@@ -415,6 +431,10 @@ prev_workers = INITIAL_WORKERS
 for year_index in range(1, 6):
     year_label = f"X{6+year_index}"
     decisions = all_decisions[year_label]
+    
+    # Apply X8+ changes
+    if year_index >= 2: # Year X8 (index 2) or later
+        st.sidebar.warning(f"Year {year_label}: Applying X8+ rules (Rent=600k, Sales Payment=80%).")
     
     cf_data, is_data, bs_data, bs_internal, lines_data, inv_data, \
     next_lines, next_workers = run_one_year(
@@ -618,6 +638,11 @@ def display_year_data(selected_year, cf_display, is_display, bs_data, lines_flow
         show_item("+ Units Produced", inv_display.get('fg_produced'), is_unit=True, is_sub=True, indent_level=1)
         show_item("- Units Sold", inv_display.get('fg_sold'), is_unit=True, is_sub=True, is_negative=True, indent_level=1)
         show_item("Ending Stock", inv_display.get('fg_ending'), is_total=True, is_unit=True)
+        # NEW v26: Display % sold
+        percent_sold = inv_display.get('fg_percent_sold_of_available', 0) * 100
+        if not is_static:
+            st.markdown(f"<div style='text-align: right; padding-right: 10px; color: #444; font-size: 14px;'><i>({percent_sold:,.1f}% of available stock sold)</i></div>", unsafe_allow_html=True)
+
 
     with inv_col2:
         st.markdown("##### Raw Materials (Units)")
@@ -677,19 +702,23 @@ with tabs[0]:
         'age_0': 0, 'age_1': INITIAL_LINE_AGES['age_1'], 'age_2': INITIAL_LINE_AGES['age_2'], 
         'age_3': INITIAL_LINE_AGES['age_3'], 'age_4': INITIAL_LINE_AGES['age_4']
     }
+    # Calculate X6 lines data
+    total_lines_X6 = sum(INITIAL_LINE_AGES.values())
+    lines_to_be_scrapped_X7 = INITIAL_LINE_AGES['age_4']
     lines_flow_data_X6 = {
         'park_composition_start': lines_display_X6_actual,
-        'opening_capacity': sum(INITIAL_LINE_AGES.values()) * UNITS_PER_LINE,
+        'opening_capacity': total_lines_X6 * UNITS_PER_LINE,
         'capacity_purchased': 0,
-        'capacity_during_year': sum(INITIAL_LINE_AGES.values()) * UNITS_PER_LINE,
+        'capacity_during_year': total_lines_X6 * UNITS_PER_LINE,
         'scrapped_this_year': 0, # Nothing is scrapped in X6
-        'capacity_scrapped': 0,
-        'capacity_next_year': (sum(INITIAL_LINE_AGES.values()) - INITIAL_LINE_AGES['age_4']) * UNITS_PER_LINE,
+        'capacity_scrapped': lines_to_be_scrapped_X7 * UNITS_PER_LINE, # This is the *projected* scrap
+        'capacity_next_year': (total_lines_X6 - lines_to_be_scrapped_X7) * UNITS_PER_LINE,
     }
 
     inv_display_X6 = {
         'fg_opening': None, 'fg_produced': None, 'fg_sold': None,
         'fg_ending': INITIAL_BALANCE_SHEET['inventory_finished_units'],
+        'fg_percent_sold_of_available': None, # NEW v26
         'mat_opening': None, 'mat_purchased': None, 'mat_used': None,
         'mat_ending': INITIAL_BALANCE_SHEET['inventory_materials_units']
     }
@@ -709,4 +738,4 @@ for i, year_label in enumerate(tab_names[1:]): # Start from X7
             is_static=False
         )
 
-st.sidebar.info("App created by Gemini (v25 - UI & Lifecycle Fix).")
+st.sidebar.info("App created by Gemini (v26 - X8+ Changes).")
