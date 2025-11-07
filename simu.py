@@ -417,7 +417,7 @@ with st.sidebar.expander("Year X7 (Mandatory)", expanded=True):
 dec_X8_defaults = {
     'price': 42.0,
     'prod_volume': 130000,
-    'target_sales_units': 130000,
+    'target_sales_units': 132000,
     'marketing_amount': 345000,
     'dividends_amount': 0.0,
     # Add dummy values for refinance so copy works
